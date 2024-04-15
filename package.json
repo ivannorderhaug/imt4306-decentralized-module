@@ -1,0 +1,19 @@
+{
+  "name": "imt4306-decentralized-module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "hardhat": "^2.22.2",
+    "mocha": "^10.4.0"
+  },
+  "dependencies": {
+    "ethers": "^6.11.1"
+  }
+}
