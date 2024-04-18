@@ -3,3 +3,5 @@ artifacts/
 cache/
 coverage/
 coverage.json
+abis/
+contract-addresses.json
