@@ -1,9 +1,11 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-describe("Proposal Contract", function () {
+describe("Proposal and Token Contract", function () {
     let Proposal;
     let proposal;
+    let Token;
+    let token;
     let owner;
     let addr1;
     let addr2;
@@ -11,8 +13,14 @@ describe("Proposal Contract", function () {
     beforeEach(async function () {
         [owner, addr1, addr2] = await ethers.getSigners();
 
+        Token = await ethers.getContractFactory("Token");
+        token = await Token.deploy();
+        await token.waitForDeployment();
+
+        const tokenAddress = await token.getAddress();
+
         Proposal = await ethers.getContractFactory("Proposal");
-        proposal = await Proposal.deploy();
+        proposal = await Proposal.deploy(tokenAddress);
         await proposal.waitForDeployment();
     });
 
@@ -47,26 +55,63 @@ describe("Proposal Contract", function () {
 
     it("Should fund a proposal", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
-        await proposal.connect(addr2).fund(0, { value: 500 });
+        await token.connect(addr2).faucet(1000);
+    
+        const balanceBefore = await token.balanceOf(addr2.address);
+        expect(balanceBefore).to.equal(1000);
+        
+        const proposalAddress = await proposal.getAddress();
 
+        await token.connect(addr2).approve(proposalAddress, 500);
+    
+        await proposal.connect(addr2).fund(0, 500);
+    
         const proposal1 = await proposal.getProject(0);
         expect(proposal1.currentAmount).to.equal(500);
+    
+        const balanceAfter = await token.balanceOf(addr2.address);
+        expect(balanceAfter).to.equal(500);
     });
-
+    
     it("Should not fund a proposal if the new currentAmount will be larges than the targetAmount", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
-        await proposal.connect(addr2).fund(0, { value: 500 });
+        await token.connect(addr2).faucet(1000);
+
+        const balanceBefore = await token.balanceOf(addr2.address);
+        expect(balanceBefore).to.equal(1000);
+
+        const proposalAddress = await proposal.getAddress();
+
+        await token.connect(addr2).approve(proposalAddress, 500);
+        
+        await proposal.connect(addr2).fund(0, 500);
 
         const proposal1 = await proposal.getProject(0);
         expect(proposal1.currentAmount).to.equal(500);
 
-        await expect(proposal.connect(addr2).fund(0, { value: 600 })).to.be.revertedWith("Amount exceeds target amount");
+        await token.connect(addr2).approve(proposalAddress, 600);
+        await expect(proposal.connect(addr2).fund(0, 600)).to.be.revertedWith("Amount exceeds target amount");
     });
+    
     it("Should refund a project", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
-        await proposal.connect(addr2).fund(0, { value: 500 });
+        await token.connect(addr2).faucet(1000);
+
+        const balanceBefore = await token.balanceOf(addr2.address);
+        expect(balanceBefore).to.equal(1000);
+
+        const proposalAddress = await proposal.getAddress();
+
+        await token.connect(addr2).approve(proposalAddress, 500);
+        
+        await proposal.connect(addr2).fund(0, 500);
+
+        const balanceAfter = await token.balanceOf(addr2.address);
+        expect(balanceAfter).to.equal(500);
 
         await proposal.connect(addr1).refund(0);
+        const balanceAfterRefund = await token.balanceOf(addr2.address);
+        expect(balanceAfterRefund).to.equal(1000);
 
         const proposal1 = await proposal.getProject(0);
         expect(proposal1.currentAmount).to.equal(0);
@@ -74,32 +119,61 @@ describe("Proposal Contract", function () {
         const funders = await proposal.getFunders(0);
         expect(funders.length).to.equal(0);
     });
-
+    
     it("Should revert when updating a non-existent project", async function () {
         await expect(proposal.connect(addr1).update(0, "Proposal 1 Updated", "This is an updated proposal", 2000, 0)).to.be.revertedWith("Invalid project id");
     });
-
+    
     it("Should revert when funding a non-existent project", async function () {
-        await expect(proposal.connect(addr1).fund(0, { value: 500 })).to.be.revertedWith("Invalid project id");
-    });
+        await token.connect(addr2).faucet(1000);
 
+        const balanceBefore = await token.balanceOf(addr2.address);
+        expect(balanceBefore).to.equal(1000);
+
+        const proposalAddress = await proposal.getAddress();
+
+        await token.connect(addr2).approve(proposalAddress, 500);
+        await expect(proposal.connect(addr1).fund(0, 500)).to.be.revertedWith("Invalid project id");
+
+        const balanceAfter = await token.balanceOf(addr2.address);
+        expect(balanceAfter).to.equal(1000);
+    });
+    
     it("Should revert when refunding a non-existent project", async function () {
         await expect(proposal.connect(addr1).refund(0)).to.be.revertedWith("Invalid project id");
     });
-
+    
     it("Should change project status to 'Completed' after reaching target amount", async function () {
+        await token.connect(addr2).faucet(1000);
+
+        const balanceBefore = await token.balanceOf(addr2.address);
+        expect(balanceBefore).to.equal(1000);
+
+        const proposalAddress = await proposal.getAddress();
+
+        await token.connect(addr2).approve(proposalAddress, 1000);
+
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
-        await proposal.connect(addr2).fund(0, { value: 1000 });
+        await proposal.connect(addr2).fund(0, 1000);
 
         const proposal1 = await proposal.getProject(0);
         expect(proposal1.status).to.equal(1);
-    });
 
+        const balanceAfter = await token.balanceOf(addr2.address);
+        expect(balanceAfter).to.equal(0);
+
+        const funders = await proposal.getFunders(0);
+        expect(funders.length).to.equal(1);
+
+        const funder = funders[0];
+        expect(funder.amount).to.equal(1000);
+    });
+    
     it("Should revert when trying to update a project as non-owner", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
         await expect(proposal.connect(addr2).update(0, "Proposal 1 Updated", "This is an updated proposal", 2000, 0)).to.be.revertedWith("Only owner can update project");
     });
-
+    
     it("Should revert when trying to refund a project as non-owner", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
         await expect(proposal.connect(addr2).refund(0)).to.be.revertedWith("Only owner can refund");
@@ -116,9 +190,21 @@ describe("Proposal Contract", function () {
             .withArgs(addr1.address, "Proposal 2 Updated", "This is an updated proposal", 2500, 1);
 
         await proposal.connect(addr2).create("Proposal 3", "This is yet another proposal", 3000);
-        await expect(proposal.connect(addr1).fund(2, { value: 1500 }))
+        
+        const tokenOwner = await token.owner();
+        await expect(token.connect(addr2).faucet(1000))
+            .to.emit(token, "Transfer")
+            .withArgs(tokenOwner, addr2.address, 1000);
+
+        const proposalAddress = await proposal.getAddress();
+
+        await expect(token.connect(addr2).approve(proposalAddress, 500))
+            .to.emit(token, "Approval")
+            .withArgs(addr2.address, proposalAddress, 500);
+
+        await expect(proposal.connect(addr2).fund(2, 500))
             .to.emit(proposal, "Funded")
-            .withArgs(addr1.address, 2, 1500);
+            .withArgs(addr2.address, 2, 500);
 
         await expect(proposal.connect(addr2).refund(2))
             .to.emit(proposal, "Refunded")
@@ -126,6 +212,29 @@ describe("Proposal Contract", function () {
 
         const proposal3 = await proposal.getProject(2);
         expect(proposal3.currentAmount).to.equal(0);
+
+        const funders = await proposal.getFunders(2);
+        expect(funders.length).to.equal(0);
     });
 
+    it("Should mint tokens", async function () {
+        const balanceBefore = await token.balanceOf(owner.address);
+        expect(balanceBefore).to.equal(1000000);
+        await token.connect(owner).mint(1000);
+        const balanceAfter = await token.balanceOf(owner.address);
+        expect(balanceAfter).to.equal(1001000);
+
+        expect(balanceAfter).to.not.equal(balanceBefore);
+    });
+
+    it("Should revert when minting tokens as non-owner", async function () {
+        await expect(token.connect(addr1).mint(1000)).to.be.revertedWith("Only owner can call this function");
+    });
+
+    it("Should update allowance on approval", async function () {
+        const proposalAddress = await proposal.getAddress();
+        await token.connect(addr1).approve(proposalAddress, 500);
+        const allowance = await token.allowance(addr1.address, proposalAddress);
+        expect(allowance).to.equal(500);
+    });
 });
