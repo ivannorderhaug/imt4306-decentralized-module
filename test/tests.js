@@ -45,7 +45,7 @@ describe("Proposal and Token Contract", function () {
 
     it("Should update a proposal", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
-        await proposal.connect(addr1).update(0, "Proposal 1 Updated", "This is an updated proposal", 2000, 0);
+        await proposal.connect(addr1).update(0, "Proposal 1 Updated", "This is an updated proposal", 2000);
 
         const proposal1 = await proposal.getProject(0);
         expect(proposal1.title).to.equal("Proposal 1 Updated");
@@ -115,13 +115,14 @@ describe("Proposal and Token Contract", function () {
 
         const proposal1 = await proposal.getProject(0);
         expect(proposal1.currentAmount).to.equal(0);
+        expect(proposal1.status).to.equal(1);
 
         const funders = await proposal.getFunders(0);
         expect(funders.length).to.equal(0);
     });
     
     it("Should revert when updating a non-existent project", async function () {
-        await expect(proposal.connect(addr1).update(0, "Proposal 1 Updated", "This is an updated proposal", 2000, 0)).to.be.revertedWith("Invalid project id");
+        await expect(proposal.connect(addr1).update(0, "Proposal 1 Updated", "This is an updated proposal", 2000)).to.be.revertedWith("Invalid project id");
     });
     
     it("Should revert when funding a non-existent project", async function () {
@@ -157,7 +158,7 @@ describe("Proposal and Token Contract", function () {
         await proposal.connect(addr2).fund(0, 1000);
 
         const proposal1 = await proposal.getProject(0);
-        expect(proposal1.status).to.equal(1);
+        expect(proposal1.status).to.equal(2);
 
         const balanceAfter = await token.balanceOf(addr2.address);
         expect(balanceAfter).to.equal(0);
@@ -171,7 +172,7 @@ describe("Proposal and Token Contract", function () {
     
     it("Should revert when trying to update a project as non-owner", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
-        await expect(proposal.connect(addr2).update(0, "Proposal 1 Updated", "This is an updated proposal", 2000, 0)).to.be.revertedWith("Only owner can update project");
+        await expect(proposal.connect(addr2).update(0, "Proposal 1 Updated", "This is an updated proposal", 2000)).to.be.revertedWith("Only owner can update project");
     });
     
     it("Should revert when trying to refund a project as non-owner", async function () {
@@ -179,15 +180,44 @@ describe("Proposal and Token Contract", function () {
         await expect(proposal.connect(addr2).refund(0)).to.be.revertedWith("Only owner can refund");
     });
 
+    it("Should withdraw funds when project is completed", async function () {
+        await token.connect(addr2).faucet(1000);
+
+        const balanceBefore = await token.balanceOf(addr2.address);
+        expect(balanceBefore).to.equal(1000);
+
+        const proposalAddress = await proposal.getAddress();
+
+        await token.connect(addr2).approve(proposalAddress, 1000);
+
+        await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
+        const tokenBalanceBefore = await token.balanceOf(addr1.address);
+
+        await proposal.connect(addr2).fund(0, 1000);
+
+        let proposal1 = await proposal.getProject(0);
+        expect(proposal1.status).to.equal(2);
+        expect(proposal1.currentAmount).to.equal(1000);
+        expect(proposal1.withdrawn).to.equal(false);
+
+        await proposal.connect(addr1).withdraw(0);
+
+        const tokenBalanceAfter = await token.balanceOf(addr1.address);
+        expect(tokenBalanceAfter).to.not.equal(tokenBalanceBefore);
+        
+        proposal1 = await proposal.getProject(0);
+        expect(proposal1.withdrawn).to.equal(true);
+    });
+    
     it("Should emit correct events", async function () {
         await expect(proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000))
             .to.emit(proposal, "Created")
             .withArgs(addr1.address, "Proposal 1", "This is a proposal", 1000, 0, 0);
 
         await proposal.connect(addr1).create("Proposal 2", "This is another proposal", 2000);
-        await expect(proposal.connect(addr1).update(1, "Proposal 2 Updated", "This is an updated proposal", 2500, 1))
+        await expect(proposal.connect(addr1).update(1, "Proposal 2 Updated", "This is an updated proposal", 2500))
             .to.emit(proposal, "Updated")
-            .withArgs(addr1.address, "Proposal 2 Updated", "This is an updated proposal", 2500, 1);
+            .withArgs(addr1.address, "Proposal 2 Updated", "This is an updated proposal", 2500);
 
         await proposal.connect(addr2).create("Proposal 3", "This is yet another proposal", 3000);
         

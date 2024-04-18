@@ -14,12 +14,14 @@ contract Proposal {
     Token public token;
 
     event Created(address owner, string title, string description, uint targetAmount, uint currentAmount, Status status);
-    event Updated(address owner, string title, string description, uint targetAmount, Status status);
+    event Updated(address owner, string title, string description, uint targetAmount);
     event Funded(address funder, uint projectId, uint amount);
     event Refunded(address owner, uint projectId, uint amount);
+    event Withdrawn(address owner, uint projectId, uint amount);
 
     enum Status {
         Ongoing,
+        Cancelled,
         Completed
     }
 
@@ -29,6 +31,7 @@ contract Proposal {
         string description;
         uint targetAmount;
         uint currentAmount;
+        bool withdrawn;
         Status status;
     }
 
@@ -54,6 +57,7 @@ contract Proposal {
             description: _description,
             targetAmount: _targetAmount,
             currentAmount: 0,
+            withdrawn: false,
             status: Status.Ongoing
         });
 
@@ -64,21 +68,21 @@ contract Proposal {
         emit Created(msg.sender, _title, _description, _targetAmount, 0, Status.Ongoing);
     }
 
-    function update(uint _id, string memory _title, string memory _description, uint _targetAmount, Status _status) public{
+    function update(uint _id, string memory _title, string memory _description, uint _targetAmount) public{
         require(_id < projectCount, "Invalid project id");
         require(msg.sender == projects[_id].owner, "Only owner can update project");
         require(bytes(_title).length > 0, "Title cannot be empty");
         require(bytes(_description).length > 0, "Description cannot be empty");
         require(_targetAmount > 0, "Target amount must be greater than 0");
+        require(projects[_id].status == Status.Ongoing, "Status must be ongoing");
 
         Project storage project = projects[_id];
         project.title = _title;
         project.description = _description;
         project.targetAmount = _targetAmount;
-        project.status = _status;
 
         console.log("Project updated by %s", msg.sender);
-        emit Updated(msg.sender, _title, _description, _targetAmount, _status);
+        emit Updated(msg.sender, _title, _description, _targetAmount);
     }
 
     function getProject(uint _id) public view returns (Project memory) {
@@ -137,9 +141,23 @@ contract Proposal {
         }
 
         projects[_projectId].currentAmount = 0;
+        projects[_projectId].status = Status.Cancelled;
         delete funders[_projectId];
 
         console.log("Project refunded by %s", msg.sender);
         emit Refunded(msg.sender, _projectId, projects[_projectId].currentAmount);
+    }
+
+    function withdraw(uint _projectId) public {
+        require(_projectId < projectCount, "Invalid project id");
+        require(projects[_projectId].owner == msg.sender, "Only owner can withdraw");
+        require(projects[_projectId].status == Status.Completed, "Project is not completed");
+        require(projects[_projectId].withdrawn == false, "Project already withdrawn");
+
+        token.transfer(msg.sender, projects[_projectId].currentAmount);
+        projects[_projectId].withdrawn = true;
+
+        console.log("Project withdrawn by %s", msg.sender);
+        emit Withdrawn(msg.sender, _projectId, projects[_projectId].currentAmount);
     }
 }
