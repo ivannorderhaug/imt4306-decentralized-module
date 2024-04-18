@@ -1,6 +1,14 @@
 async function main() {
+    const Token = await ethers.getContractFactory("Token");
+    const token = await Token.deploy();
+    await token.waitForDeployment();
+
+    const tokenAddress = await token.getAddress();
+    
+    console.log("Token deployed to:", tokenAddress);
+
     const Proposal = await ethers.getContractFactory("Proposal");
-    const proposal = await Proposal.deploy();
+    const proposal = await Proposal.deploy(tokenAddress);
     await proposal.waitForDeployment();
 
     const proposalAddress = await proposal.getAddress();
