@@ -3,12 +3,15 @@ pragma solidity ^0.8.24;
 
 import "hardhat/console.sol";
 
+import "./Token.sol";
+
 contract Proposal {
     address public owner;
     uint public projectCount;
     mapping(uint => Project) public projects;
     mapping(uint => Funder[]) public funders;
 
+    Token public token;
 
     event Created(address owner, string title, string description, uint targetAmount, uint currentAmount, Status status);
     event Updated(address owner, string title, string description, uint targetAmount, Status status);
@@ -35,8 +38,9 @@ contract Proposal {
         uint amount;
     }
 
-    constructor() {
+    constructor(address _token) {
         owner = msg.sender;
+        token = Token(_token);
     }
 
     function create(string memory _title, string memory _description, uint _targetAmount) public {
@@ -95,29 +99,31 @@ contract Proposal {
         return funders[_projectId];
     }
 
-    function fund(uint _projectId) public payable {
+    function fund(uint _projectId, uint _amount) public {
         require(_projectId < projectCount, "Invalid project id");
-        require(msg.value > 0, "Amount must be greater than 0");
+        require(_amount > 0, "Amount must be greater than 0");
         require(projects[_projectId].status == Status.Ongoing, "Project is not ongoing");
-        require(msg.value + projects[_projectId].currentAmount <= projects[_projectId].targetAmount, "Amount exceeds target amount");
+        require(_amount + projects[_projectId].currentAmount <= projects[_projectId].targetAmount, "Amount exceeds target amount");
+
+        token.transferFrom(msg.sender, address(this), _amount);
 
         Funder memory newFunder = Funder({
             funder: msg.sender,
             projectId: _projectId,
-            amount: msg.value
+            amount: _amount
         });
 
         funders[_projectId].push(newFunder);
 
         Project storage project = projects[_projectId];
-        project.currentAmount += msg.value;
+        project.currentAmount += _amount;
 
         if (project.currentAmount == project.targetAmount) {
             project.status = Status.Completed;
         }
 
         console.log("Project funded by %s", msg.sender);
-        emit Funded(msg.sender, _projectId, msg.value);
+        emit Funded(msg.sender, _projectId, _amount);
     }
 
     function refund(uint _projectId) public {
@@ -127,7 +133,7 @@ contract Proposal {
 
         Funder[] storage _funders = funders[_projectId];
         for (uint i = 0; i < _funders.length; i++) {
-            payable(_funders[i].funder).transfer(_funders[i].amount);
+            token.transfer(_funders[i].funder, _funders[i].amount);
         }
 
         projects[_projectId].currentAmount = 0;
