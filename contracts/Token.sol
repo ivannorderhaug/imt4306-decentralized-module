@@ -12,10 +12,8 @@ contract Token {
     address public owner;
 
     mapping(address => uint256) public balances;
-    mapping(address => mapping(address => uint256)) public allowances;
 
     event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
 
     constructor() {
         owner = msg.sender;
@@ -40,29 +38,17 @@ contract Token {
 
     function transferFrom(address _from, address _to, uint256 _value) public returns (bool success) {
         require(balances[_from] >= _value, "Insufficient balance");
-        require(allowances[_from][msg.sender] >= _value, "Allowance exceeded");
+        require(balances[_to] + _value >= balances[_to], "Invalid balance");
 
         balances[_from] -= _value;
         balances[_to] += _value;
-
-        allowances[_from][msg.sender] -= _value;
 
         emit Transfer(_from, _to, _value);
         return true;
     }
 
-    function approve(address _spender, uint256 _value) public returns (bool success) {
-        allowances[msg.sender][_spender] = _value;
-        emit Approval(msg.sender, _spender, _value);
-        return true;
-    }
-
     function balanceOf(address _owner) public view returns (uint256 balance) {
         return balances[_owner];
-    }
-
-    function allowance(address _owner, address _spender) public view returns (uint256 remaining) {
-        return allowances[_owner][_spender];
     }
 
     function faucet(uint256 _value) public {

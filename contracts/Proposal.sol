@@ -9,7 +9,6 @@ contract Proposal {
     address public owner;
     uint public projectCount;
     mapping(uint => Project) public projects;
-    mapping(uint => Funder[]) public funders;
 
     Token public token;
 
@@ -33,12 +32,6 @@ contract Proposal {
         uint currentAmount;
         bool withdrawn;
         Status status;
-    }
-
-    struct Funder {
-        address funder;
-        uint projectId;
-        uint amount;
     }
 
     constructor(address _token) {
@@ -98,11 +91,6 @@ contract Proposal {
         return _projects;
     }
 
-    function getFunders(uint _projectId) public view returns (Funder[] memory) {
-        require(_projectId < projectCount, "Invalid project id");
-        return funders[_projectId];
-    }
-
     function fund(uint _projectId, uint _amount) public {
         require(_projectId < projectCount, "Invalid project id");
         require(_amount > 0, "Amount must be greater than 0");
@@ -110,14 +98,6 @@ contract Proposal {
         require(_amount + projects[_projectId].currentAmount <= projects[_projectId].targetAmount, "Amount exceeds target amount");
 
         token.transferFrom(msg.sender, address(this), _amount);
-
-        Funder memory newFunder = Funder({
-            funder: msg.sender,
-            projectId: _projectId,
-            amount: _amount
-        });
-
-        funders[_projectId].push(newFunder);
 
         Project storage project = projects[_projectId];
         project.currentAmount += _amount;
@@ -128,24 +108,6 @@ contract Proposal {
 
         console.log("Project funded by %s", msg.sender);
         emit Funded(msg.sender, _projectId, _amount);
-    }
-
-    function refund(uint _projectId) public {
-        require(_projectId < projectCount, "Invalid project id");
-        require(projects[_projectId].owner == msg.sender, "Only owner can refund");
-        require(projects[_projectId].status == Status.Ongoing, "Project is not ongoing");
-
-        Funder[] storage _funders = funders[_projectId];
-        for (uint i = 0; i < _funders.length; i++) {
-            token.transfer(_funders[i].funder, _funders[i].amount);
-        }
-
-        projects[_projectId].currentAmount = 0;
-        projects[_projectId].status = Status.Cancelled;
-        delete funders[_projectId];
-
-        console.log("Project refunded by %s", msg.sender);
-        emit Refunded(msg.sender, _projectId, projects[_projectId].currentAmount);
     }
 
     function withdraw(uint _projectId) public {
