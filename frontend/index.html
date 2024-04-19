@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proposal DApp</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/web3/4.8.0/web3.min.js"></script>
+    <script
+        src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.12.0/ethers.umd.min.js"
+        type="application/javascript"
+    ></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 5;
+            padding: 0;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        #balanceDiv {
+            display: none;
+        }
+
+        .project-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .project {
+            width: 200px;
+            margin: 0 10px 20px; 
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f9f9f9;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .project h3 {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        .project p {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+
+        button {
+            background-color: #007bff;
+            color: #fff;
+            border: none;
+            border-radius: 3px;
+            padding: 8px 16px;
+            cursor: pointer;
+            margin: 5px 0;
+        }
+
+        .project button:hover {
+            background-color: #0056b3;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            width: 50%;
+            margin: 0 auto;
+        }
+
+        label {
+            margin: 10px 0;
+        }
+
+        input {
+            padding: 10px;
+            margin: 5px 0;
+        }
+
+        button[type="submit"] {
+            padding: 10px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Ivan's DApp</h1>
+    <button id="connectBtn" onclick="connect()">Connect Wallet</button>
+    <p id="statusMsg">You are currently not connected.</p>
+    <hr/>
+    <div id="balanceDiv">
+        <p>Token Balance: <span id="balance">0</span></p> 
+        <button onclick="getTokens()">Get Tokens</button>
+    </div>
+    <hr/>
+    <form id="createProjectForm">
+        <label for="name">Name:</label>
+        <input type="text" id="name" name="name" required>
+        <label for="description">Description:</label>
+        <input type="text" id="description" name="description" required>
+        <label for="targetAmount">Target Amount:</label>
+        <input type="number" id="targetAmount" name="targetAmount" required min="0">
+        <button type="submit">Create Project</button>
+    </form>
+    <hr/>
+    <div id="projects" class="project-wrapper"></div>
+    <script>
+        // Declare provider and signer variables at the global scope
+        let provider;
+        let signer;
+
+        let proposalContract;
+        let proposalContractAddress;
+
+        let tokenContract;
+        let tokenContractAddress;
+
+        // Function to initialize the provider and signer
+        async function init() {
+            provider = new ethers.BrowserProvider(window.ethereum);
+            signer = await provider.getSigner();
+            
+            const proposalResponse = await axios.get('http://localhost:3000/proposal');
+            const proposalData = proposalResponse.data;
+            
+            proposalContractAddress = proposalData.address;
+            proposalContract = new ethers.Contract(proposalContractAddress, proposalData.abi, signer);
+
+            const tokenResponse = await axios.get('http://localhost:3000/token');
+            const tokenData = tokenResponse.data;
+
+            tokenContractAddress = tokenData.address;
+            tokenContract = new ethers.Contract(tokenContractAddress, tokenData.abi, signer);
+
+            if (window.ethereum) {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts.length > 0) {
+                    const account = accounts[0];
+                    const balance = await tokenContract.balanceOf(account);
+                    
+                    document.getElementById('statusMsg').innerText = `Connected with ${account}`;
+                    document.getElementById('connectBtn').style.display = 'none';
+                    document.getElementById('balanceDiv').style.display = 'block';
+                    document.getElementById('balance').innerText = balance.toString();
+
+                    getProjects();
+                } else {
+                    document.getElementById('statusMsg').innerText = 'You are currently not connected.';
+                    document.getElementById('connectBtn').style.display = 'block';
+                    document.getElementById('balance').innerText = 0;
+                    document.getElementById('projects').innerHTML = '';
+                }
+            }
+        }
+
+        window.onload = function() {
+            init();
+        }
+
+        async function connect() {
+            if (window.ethereum) {
+                try {
+                    await window.ethereum.request({ method: 'eth_requestAccounts' });
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x539' }],
+                    });
+
+                    const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                    const account = accounts[0];
+                    
+                    const balance = await tokenContract.balanceOf(account);
+                    
+                    document.getElementById('statusMsg').innerText = `Connected with ${account}`;
+                    document.getElementById('connectBtn').style.display = 'none';
+                    document.getElementById('balanceDiv').style.display = 'block';
+                    document.getElementById('balance').innerText = balance.toString();
+
+                    getProjects();
+                } catch (error) {
+                    console.error(error);
+                }
+            } else {
+                alert('Please install MetaMask!');
+            }
+        }
+
+        async function getTokens(){
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            const account = accounts[0];
+            const tx = await tokenContract.faucet(1000);
+            await tx.wait();
+            const balance = await tokenContract.balanceOf(account);
+            document.getElementById('balance').innerText = balance.toString();
+        }
+
+        async function getProjects() {
+            const projects = await proposalContract.getProjects();
+            const projectsDiv = document.getElementById('projects');
+            projectsDiv.innerHTML = '';
+            let i = 0;
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            console.log(accounts);
+            const account = accounts[0];
+            projects.forEach(project => {
+                const owner = project.owner.toLowerCase();
+                const projectDiv = document.createElement('div');
+                projectDiv.classList.add('project');
+                projectDiv.innerHTML = `
+                    <h3>Title: ${project.title}</h3>
+                    <p>Description: ${project.description}</p>
+                    <p>Goal: ${project.targetAmount}</p>
+                    <p>Current: ${project.currentAmount}</p>
+                    <p>Status: ${getStatusText(project.status)}</p>
+                    <input type="number" id="fundAmount${i}" name="fundAmount" required min="0" style="display: ${parseInt(project.status) === 0 ? 'block' : 'none'}">
+                    <button onclick="fundProject(${i})" style="display: ${parseInt(project.status) === 0 ? 'block' : 'none'}">Fund Project</button>
+                    <button onclick="withdrawFunds(${i})" style="display: ${owner === account && !project.withdrawn && parseInt(project.status) === 2 ? 'block' : 'none'}">Withdraw Funds</button>
+                `;
+                projectsDiv.appendChild(projectDiv);
+                i++;
+            });
+        }
+
+        async function withdrawFunds(index) {
+            const tx = await proposalContract.withdraw(index);
+            await tx.wait();
+
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            const account = accounts[0];
+            const balance = await tokenContract.balanceOf(account);
+            document.getElementById('balance').innerText = balance.toString();
+
+            getProjects();
+        }
+
+        function getStatusText(status) {
+            status = parseInt(status);
+
+            switch (status) {
+                case 0:
+                    return 'Ongoing';
+                case 1:
+                    return 'Cabcelled';
+                case 2:
+                    return 'Completed';
+                default:
+                    return 'Unknown';
+            }
+        }
+
+        async function fundProject(index) {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            const account = accounts[0];
+            const fundAmount = document.getElementById(`fundAmount${index}`).value.trim();
+
+            if (isNaN(fundAmount) || parseFloat(fundAmount) <= 0 || fundAmount === '') {
+                alert("Fund amount must be a valid number greater than zero.");
+                return; 
+            }
+            
+            const tx = await proposalContract.fund(index, fundAmount);
+            await tx.wait();
+            getProjects();
+
+            document.getElementById(`fundAmount${index}`).value = '';
+
+            const balance = await tokenContract.balanceOf(account);
+            document.getElementById('balance').innerText = balance.toString();
+        }
+
+        window.ethereum.on('accountsChanged', async function(accounts) {
+            init();
+            window.location.reload();
+        });
+
+        document.getElementById('createProjectForm').onsubmit = async function(event) {
+            event.preventDefault();
+
+            // Get form input values
+            const name = document.getElementById('name').value.trim();
+            const description = document.getElementById('description').value.trim();
+            const targetAmount = document.getElementById('targetAmount').value.trim();
+
+            // Basic input validations
+            if (!name || !description || !targetAmount) {
+                alert("Please fill out all fields.");
+                return;
+            }
+
+            if (isNaN(targetAmount) || parseFloat(targetAmount) <= 0) {
+                alert("Target amount must be a valid number greater than zero.");
+                return; 
+            }
+
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            const account = accounts[0];
+
+            console.log(account);
+
+            const tx = await proposalContract.create(name, description, targetAmount);
+            await tx.wait();
+            getProjects();
+
+            // Clear form fields
+            document.getElementById('name').value = '';
+            document.getElementById('description').value = '';
+            document.getElementById('targetAmount').value = '0';
+        };
+    </script>
+</body>
+
+</html>
