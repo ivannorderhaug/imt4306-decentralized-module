@@ -55,23 +55,28 @@ describe("Proposal and Token Contract", function () {
 
     it("Should fund a proposal", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
-        await token.connect(addr2).faucet(1000);
-    
-        const balanceBefore = await token.balanceOf(addr2.address);
-        expect(balanceBefore).to.equal(1000);
         
+        const balanceBefore = await token.balanceOf(addr2.address);
+        expect(balanceBefore).to.equal(0); 
+
+        await token.connect(addr2).swap({value: ethers.parseEther("1")});
+        
+        const balanceAfter = await token.balanceOf(addr2.address);
+        expect(balanceAfter).to.equal(1000);
+
         await proposal.connect(addr2).fund(0, 500);
     
         const proposal1 = await proposal.getProject(0);
         expect(proposal1.currentAmount).to.equal(500);
+
+        const balanceAfterFunding = await token.balanceOf(addr2.address);
+        expect(balanceAfterFunding).to.equal(500);
     
-        const balanceAfter = await token.balanceOf(addr2.address);
-        expect(balanceAfter).to.equal(500);
     });
     
     it("Should not fund a proposal if the new currentAmount will be larger than the targetAmount", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
-        await token.connect(addr2).faucet(1000);
+        await token.connect(addr2).swap({value: ethers.parseEther("1")});
 
         const balanceBefore = await token.balanceOf(addr2.address);
         expect(balanceBefore).to.equal(1000);
@@ -89,13 +94,13 @@ describe("Proposal and Token Contract", function () {
     });
     
     it("Should revert when funding a non-existent project", async function () {
-        await token.connect(addr2).faucet(1000);
+        await token.connect(addr2).swap({value: ethers.parseEther("1")});
 
         await expect(proposal.connect(addr1).fund(0, 500)).to.be.revertedWith("Invalid project id");
     });
     
     it("Should change project status to 'Completed' after reaching target amount", async function () {
-        await token.connect(addr2).faucet(1000);
+        await token.connect(addr2).swap({value: ethers.parseEther("1")});
 
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
         await proposal.connect(addr2).fund(0, 1000);
@@ -110,7 +115,7 @@ describe("Proposal and Token Contract", function () {
     });
     
     it("Should withdraw funds when project is completed", async function () {
-        await token.connect(addr2).faucet(1000);
+        await token.connect(addr2).swap({value: ethers.parseEther("1")});
 
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
 
@@ -123,7 +128,7 @@ describe("Proposal and Token Contract", function () {
     });
 
     it("Should revert when trying to withdraw funds more than once", async function () {
-        await token.connect(addr2).faucet(1000);
+        await token.connect(addr2).swap({value: ethers.parseEther("1")});
 
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
 
@@ -138,7 +143,7 @@ describe("Proposal and Token Contract", function () {
     });
 
     it("Should revert when trying to withdraw funds from a non-completed project", async function () {
-        await token.connect(addr2).faucet(1000);
+        await token.connect(addr2).swap({value: ethers.parseEther("1")});
 
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
 
@@ -163,7 +168,7 @@ describe("Proposal and Token Contract", function () {
 
         await proposal.connect(addr2).create("Proposal 3", "This is yet another proposal", 3000);
         
-        await expect(token.connect(addr2).faucet(1000))
+        await expect(token.connect(addr2).swap({value: ethers.parseEther("1")}))
             .to.emit(token, "Transfer")
             .withArgs(await token.owner(), addr2.address, 1000);
 
