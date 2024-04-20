@@ -2,7 +2,7 @@
   "name": "imt4306-decentralized-module",
   "version": "1.0.0",
   "description": "",
-  "main": "scripts/deploy.js",
+  "main": "run.js",
   "scripts": {
     "test": "mocha"
   },
