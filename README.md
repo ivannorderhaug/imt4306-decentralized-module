@@ -46,3 +46,7 @@ npx hardhat coverage
 ```bash
 npx hardhat --network localhost free_eth <your_metamask_wallet_address>
 ```
+## Bugs
+Should you encounter any bugs, like for example the balance not updating after swapping, try refreshing or do a new swap. Otherwise, stop the dApp instance from running. Unlock your [MetaMask](https://metamask.io/) wallet and go to Settings>Advanced and click on "Clear activity tab data", before rerunning Step 3. 
+
+Note: Should you rerun the dApp instance, you need to rerun the free_eth task in additional commands.
