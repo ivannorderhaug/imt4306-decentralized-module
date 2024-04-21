@@ -31,7 +31,7 @@ describe("Proposal and Token Contract", function () {
     it("Should create a proposal", async function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
         
-        const proposal1 = await proposal.getProject(0);
+        const proposal1 = await proposal.projects(0);
         expect(proposal1.title).to.equal("Proposal 1");
         expect(proposal1.description).to.equal("This is a proposal");
         expect(proposal1.targetAmount).to.equal(1000);
@@ -47,7 +47,7 @@ describe("Proposal and Token Contract", function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
         await proposal.connect(addr1).update(0, "Proposal 1 Updated", "This is an updated proposal", 2000);
 
-        const proposal1 = await proposal.getProject(0);
+        const proposal1 = await proposal.projects(0);
         expect(proposal1.title).to.equal("Proposal 1 Updated");
         expect(proposal1.description).to.equal("This is an updated proposal");
         expect(proposal1.targetAmount).to.equal(2000);
@@ -66,7 +66,7 @@ describe("Proposal and Token Contract", function () {
 
         await proposal.connect(addr2).fund(0, 500);
     
-        const proposal1 = await proposal.getProject(0);
+        const proposal1 = await proposal.projects(0);
         expect(proposal1.currentAmount).to.equal(500);
 
         const balanceAfterFunding = await token.balanceOf(addr2.address);
@@ -83,7 +83,7 @@ describe("Proposal and Token Contract", function () {
 
         await proposal.connect(addr2).fund(0, 500);
 
-        const proposal1 = await proposal.getProject(0);
+        const proposal1 = await proposal.projects(0);
         expect(proposal1.currentAmount).to.equal(500);
 
         await expect(proposal.connect(addr2).fund(0, 600)).to.be.revertedWith("Amount exceeds target amount");
@@ -105,7 +105,7 @@ describe("Proposal and Token Contract", function () {
         await proposal.connect(addr1).create("Proposal 1", "This is a proposal", 1000);
         await proposal.connect(addr2).fund(0, 1000);
 
-        const proposal1 = await proposal.getProject(0);
+        const proposal1 = await proposal.projects(0);
         expect(proposal1.status).to.equal(2);
     });
     
