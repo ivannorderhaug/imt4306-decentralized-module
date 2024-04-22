@@ -50,6 +50,7 @@
         border-radius: 5px;
         padding: 15px;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-right: 15px;
       }
       .project h3 {
         margin-top: 0;
@@ -168,25 +169,35 @@
 
       // Function to initialize the provider and signer
       async function init() {
+        // Check if the browser has an Ethereum provider
         provider = new ethers.BrowserProvider(window.ethereum);
+        // Get the signer
         signer = await provider.getSigner();
 
+        // Get the proposal contract
         const proposalResponse = await axios.get(
           "http://localhost:3000/proposal",
         );
         const proposalData = proposalResponse.data;
-
+        
+        // Get the contract address
         proposalContractAddress = proposalData.address;
+
+        // Create a new contract instance
         proposalContract = new ethers.Contract(
           proposalContractAddress,
           proposalData.abi,
           signer,
         );
 
+        // Get the token contract
         const tokenResponse = await axios.get("http://localhost:3000/token");
         const tokenData = tokenResponse.data;
 
+        // Get the contract address
         tokenContractAddress = tokenData.address;
+
+        // Create a new contract instance
         tokenContract = new ethers.Contract(
           tokenContractAddress,
           tokenData.abi,
@@ -203,27 +214,37 @@
 
       // Connect to wallet
       async function connect() {
+        // Check if the browser has an Ethereum provider
         if (window.ethereum) {
           try {
+            // Request access to the user's MetaMask account
             await window.ethereum.request({ method: "eth_requestAccounts" });
+
+            // Switch to the test network if not already on it
             await window.ethereum.request({
               method: "wallet_switchEthereumChain",
               params: [{ chainId: "0x539" }],
             });
 
+            // Get the accounts
             const accounts = await window.ethereum.request({
               method: "eth_accounts",
             });
+
+            // Get the first account
             const account = accounts[0];
 
+            // Get the balance
             const balance = await tokenContract.balanceOf(account);
 
+            // Update the UI
             document.getElementById("msgLoggedIn").innerText =
               `Connected with ${account}`;
             document.getElementById("notLoggedIn").style.display = "none";
             document.getElementById("loggedIn").style.display = "block";
             document.getElementById("balance").innerText = balance.toString();
 
+            // Get projects
             getProjects();
           } catch (error) {
             console.error(error);
@@ -235,8 +256,10 @@
 
       // Swap tokens
       async function swap() {
+        // Get swap amount
         const swapAmount = document.getElementById("swapAmount").value.trim();
 
+        // Basic input validations
         if (
           isNaN(swapAmount) ||
           parseFloat(swapAmount) <= 0 ||
@@ -245,38 +268,56 @@
           alert("Swap amount must be a valid number greater than zero.");
           return;
         }
-
+        // Swap tokens
         const tx = await tokenContract.swap({
           value: ethers.parseEther(swapAmount),
         });
+
+        // Wait for transaction to complete
         await tx.wait();
 
+        // Get accounts
         const accounts = await window.ethereum.request({
           method: "eth_accounts",
         });
+
+        // Get the first account
         const account = accounts[0];
 
+        // Update the balance
         const balance = await tokenContract.balanceOf(account);
         document.getElementById("balance").innerText = balance.toString();
 
+        // Reset the input field
         document.getElementById("swapAmount").value = "";
       }
 
       // Get projects
       async function getProjects() {
+        // Get projects
         const projects = await proposalContract.getProjects();
+
+        // Get the projects div
         const projectsDiv = document.getElementById("projects");
+        // Clear the projects div
         projectsDiv.innerHTML = "";
 
+        // Get accounts
         const accounts = await window.ethereum.request({
           method: "eth_accounts",
         });
+        // Get the first account
         const account = accounts[0];
 
+        // Display projects
         projects.forEach((project, index) => {
+          // Get the project owner
           const owner = project.owner.toLowerCase();
+          // Create a project div
           const projectDiv = document.createElement("div");
+          // Add the project class
           projectDiv.classList.add("project");
+          // Set the project div inner HTML
           projectDiv.innerHTML = `
                         <h3>${project.title}</h3>
                         <p>${project.description}</p>
@@ -284,25 +325,36 @@
                         <p>Current: ${project.currentAmount}</p>
                         <p>Status: ${getStatusText(project.status)}</p>
                         <input type="number" id="fundAmount${index}" name="fundAmount" placeHolder="Amount" required min="0" style="display: ${parseInt(project.status) === 0 ? "block" : "none"}">
+                        <button onclick="updateProject(${index})" style="display: ${owner === account && parseInt(project.status) === 0 ? "block" : "none"}">Update Project</button>
                         <button onclick="fundProject(${index})" style="display: ${parseInt(project.status) === 0 ? "block" : "none"}">Fund Project</button>
                         <button onclick="withdrawFunds(${index})" style="display: ${owner === account && !project.withdrawn && parseInt(project.status) === 2 ? "block" : "none"}">Withdraw Funds</button>
                     `;
+          // Append the project div to the projects div
           projectsDiv.appendChild(projectDiv);
         });
       }
 
       // Withdraw funds from a project
       async function withdrawFunds(index) {
+        // Withdraw funds
+
         const tx = await proposalContract.withdraw(index);
+        // Wait for transaction to complete
         await tx.wait();
 
+        // Get updated projects list
         const accounts = await window.ethereum.request({
           method: "eth_accounts",
         });
+
+        // Get the first account
         const account = accounts[0];
+
+        // Update the balance
         const balance = await tokenContract.balanceOf(account);
         document.getElementById("balance").innerText = balance.toString();
 
+        // Get updated projects list
         getProjects();
       }
 
@@ -324,14 +376,19 @@
 
       // Fund a project
       async function fundProject(index) {
+        // Get accounts
         const accounts = await window.ethereum.request({
           method: "eth_accounts",
         });
+        // Get the first account
         const account = accounts[0];
+        
+        // Get the fund amount
         const fundAmount = document
           .getElementById(`fundAmount${index}`)
           .value.trim();
 
+        // Basic input validations
         if (
           isNaN(fundAmount) ||
           parseFloat(fundAmount) <= 0 ||
@@ -340,15 +397,78 @@
           alert("Fund amount must be a valid number greater than zero.");
           return;
         }
-
+        // Fund the project
         const tx = await proposalContract.fund(index, fundAmount);
+        // Wait for transaction to complete
+        await tx.wait();
+
+        // Get updated projects list
+        getProjects();
+
+        // Reset the input field
+        document.getElementById(`fundAmount${index}`).value = "";
+        
+        // Update the balance
+        const balance = await tokenContract.balanceOf(account);
+        document.getElementById("balance").innerText = balance.toString();
+      }
+
+      // Update a project
+      async function updateProject(index) {
+        // get the project details
+        const project = await proposalContract.projects(index);
+
+        // prompt the user for the new project details
+        const title = prompt("Enter the new title", project.title);
+
+        if (!title) {
+          return;
+        }
+
+        const description = prompt(
+          "Enter the new description",
+          project.description,
+        );
+
+        if (!description) {
+          return;
+        }
+
+
+        const targetAmount = prompt(
+          "Enter the new target amount",
+          project.targetAmount,
+        );
+
+        if (!targetAmount) {
+          return;
+        }
+
+
+        // if the project details are the same, return
+        if (
+          title === project.title &&
+          description === project.description &&
+          targetAmount === project.targetAmount
+        ) {
+          return;
+        }
+
+        // if the target amount is not a valid number, return
+        if (isNaN(targetAmount) || parseFloat(targetAmount) <= 0) {
+          alert("Target amount must be a valid number greater than zero.");
+          return;
+        }
+
+        // update the project
+        const tx = await proposalContract.update(index, title, description, targetAmount);
         await tx.wait();
         getProjects();
 
-        document.getElementById(`fundAmount${index}`).value = "";
-
-        const balance = await tokenContract.balanceOf(account);
-        document.getElementById("balance").innerText = balance.toString();
+        // reset the form fields
+        document.getElementById("title").value = "";
+        document.getElementById("description").value = "";
+        document.getElementById("targetAmount").value = "";
       }
 
       // Reset form fields
@@ -384,21 +504,30 @@
           return;
         }
 
+        // Validate target amount
         if (isNaN(targetAmount) || parseFloat(targetAmount) <= 0) {
           alert("Target amount must be a valid number greater than zero.");
           return;
         }
 
+        // Get accounts
         const accounts = await window.ethereum.request({
           method: "eth_accounts",
         });
+
+        // Get the first account
         const account = accounts[0];
+
+        // Create project
         const tx = await proposalContract.create(
           name,
           description,
           targetAmount,
         );
+        // Wait for transaction to complete
         await tx.wait();
+
+        // Get updated projects list
         getProjects();
 
         // Clear form fields
