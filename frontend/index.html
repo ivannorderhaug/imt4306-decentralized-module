@@ -397,6 +397,16 @@
           alert("Fund amount must be a valid number greater than zero.");
           return;
         }
+        
+        // Give the proposal contract an allowance to spend the token
+        const txApprove = await tokenContract.approve(proposalContractAddress, fundAmount);
+        const txApproveReceipt = await txApprove.wait();
+
+        if (txApproveReceipt.status !== 1) {
+          alert("Failed to approve the proposal contract to spend the token.");
+          return;
+        }
+
         // Fund the project
         const tx = await proposalContract.fund(index, fundAmount);
         // Wait for transaction to complete

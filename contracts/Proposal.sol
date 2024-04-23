@@ -18,7 +18,7 @@ contract Proposal {
 
     // Events for contract actions
     event Created(address owner, string title, string description, uint targetAmount, uint currentAmount, Status status);
-    event Updated(address owner, string title, string description, uint targetAmount);
+    event Updated(address owner, uint projectId, string title, string description, uint targetAmount);
     event Funded(address funder, uint projectId, uint amount);
     event Withdrawn(address owner, uint projectId, uint amount);
 
@@ -92,7 +92,7 @@ contract Proposal {
         }
 
         console.log("Project updated by %s", msg.sender);
-        emit Updated(msg.sender, _title, _description, _targetAmount);
+        emit Updated(msg.sender, _id, _title, _description, _targetAmount);
     }
 
     // Function to retrieve all projects
@@ -115,7 +115,7 @@ contract Proposal {
         require(_amount + projects[_projectId].currentAmount <= projects[_projectId].targetAmount, "Amount exceeds target amount");
 
         // Transfer tokens from sender to contract
-        token.transferFrom(msg.sender, address(this), _amount);
+        require(token.transferFrom(msg.sender, address(this), _amount), "Token transfer failed");
 
         // Update project current amount and status, emit event
         Project storage project = projects[_projectId];
@@ -137,7 +137,7 @@ contract Proposal {
         require(projects[_projectId].withdrawn == false, "Project already withdrawn");
 
         // Transfer tokens to project owner and mark project as withdrawn, emit event
-        token.transfer(msg.sender, projects[_projectId].currentAmount);
+        require(token.transfer(msg.sender, projects[_projectId].currentAmount), "Token transfer failed");
         projects[_projectId].withdrawn = true;
 
         console.log("Project withdrawn by %s", msg.sender);
