@@ -23,13 +23,17 @@ git clone git@github.com:ivannorderhaug/imt4306-decentralized-module.git
 ```bash
 cd imt4306-decentralized-module
 ```
-3. Run the following command to start the server
+3. Install dependencies
+```bash
+npm i
+```
+4. Run the following command to start the server
 ```bash
 node .
 ```
-4. Access the frontend at [http://localhost:3000](http://localhost:3000), and connect your [MetaMask](https://metamask.io/) wallet.
+5. Access the frontend at [http://localhost:3000](http://localhost:3000), and connect your [MetaMask](https://metamask.io/) wallet.
 
-5. Enjoy. (Want free ETH to interact with the dApp? Check out the additional commands.)
+6. Enjoy. (Want free ETH to interact with the dApp? Check out the additional commands.)
 
 ---
 #### Additional commands:
