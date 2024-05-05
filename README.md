@@ -1,6 +1,6 @@
 # IMT4306 Decentralized Module - dApp
 
-This repository is a part of the portfolio for the decentralized systems module in IMT4306 - Introduction to Research in Decentralised Systems.
+This repository is a part of the portfolio for IMT4306 - Introduction to Research in Decentralised Systems.
 
 ## Requirements
 
@@ -50,7 +50,17 @@ npx hardhat coverage
 ```bash
 npx hardhat --network localhost free_eth <your_metamask_wallet_address>
 ```
+
+## Testing
+I have tried to thoroughly test the contracts to catch any unexpected behaviors. The table below is the result of the following command: `npx hardhat coverage`
+| File          | % Stmts | % Branch | % Funcs | % Lines | Uncovered Lines |
+|---------------|---------|----------|---------|---------|-----------------|
+| contracts/    |  98.11  |  70.69   |  92.86  |  96.05  |                 |
+| Proposal.sol  |  100    |  76.19   |  100    |  97.87  |  91             |
+| Token.sol     |  94.44  |  56.25   |  87.5   |  93.1   |  39, 40         |
+| All files     |  98.11  |  70.69   |  92.86  |  96.05  |                 |
+
 ## Bugs
-Should you encounter any bugs, like for example the balance not updating after swapping, try refreshing or do a new swap. Otherwise, stop the dApp instance from running. Unlock your [MetaMask](https://metamask.io/) wallet and go to Settings>Advanced and click on "Clear activity tab data", before rerunning Step 3. 
+Should you encounter any bugs with the UI, like for example the balance not updating after swapping, try refreshing or do a new swap. Otherwise, stop the dApp instance from running. Unlock your [MetaMask](https://metamask.io/) wallet and go to Settings>Advanced and click on "Clear activity tab data", before rerunning Step 4. 
 
 Note: Should you rerun the dApp instance, you need to rerun the free_eth task in additional commands and clear your activity tab data on MetaMask.
